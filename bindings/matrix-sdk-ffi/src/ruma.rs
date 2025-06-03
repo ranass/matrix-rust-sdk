@@ -488,17 +488,16 @@ impl TryFrom<RumaMessageType> for MessageType {
                 content: TextMessageContent {
                     body: c.body.clone(),
                     formatted: c.formatted.as_ref().map(Into::into),
-                    url_previews: c.url_previews.as_ref().map(|previews| {
-                        previews
-                            .iter()
-                            .map(|preview| UrlPreview {
-                                matched_url: preview.matched_url.clone(),
-                                url: preview.url.clone(),
-                                title: preview.title.clone(),
-                                description: preview.description.clone(),
-                            })
-                            .collect()
-                    }),
+
+                    url_previews: c
+                        .url_previews
+                        .as_ref()
+                        .map(|previews| {
+                            previews
+                                .iter()
+                                .map(|p| UrlPreview::from(p))
+                                .collect::<Vec<_>>()
+                        }),
                 },
             },
             RumaMessageType::Location(c) => {
@@ -815,6 +814,106 @@ impl From<ThumbnailInfo> for RumaThumbnailInfo {
             mimetype: value.mimetype,
             size: value.size.map(u64_to_uint),
         })
+    }
+}
+
+#[derive(Clone, uniffi::Enum)]
+pub enum PreviewImageSource {
+    /// Source of the PreviewImage as encrypted file data
+    EncryptedImage { file: String },
+    /// Source of the PreviewImage as a simple MxcUri
+    Url { url: String },
+}
+
+impl From<ruma::events::room::message::PreviewImageSource> for PreviewImageSource {
+    fn from(source: ruma::events::room::message::PreviewImageSource) -> Self {
+        match source {
+            ruma::events::room::message::PreviewImageSource::EncryptedImage(file) => {
+                // For FFI simplicity, we serialize the encrypted file to JSON
+                Self::EncryptedImage {
+                    file: serde_json::to_string(&file).unwrap_or_default()
+                }
+            }
+            ruma::events::room::message::PreviewImageSource::Url(url) => {
+                Self::Url { url: url.to_string() }
+            }
+        }
+    }
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct PreviewImage {
+    /// The source information for the image.
+    pub source: PreviewImageSource,
+    /// The size of the image in bytes.
+    pub size: Option<u64>,
+    /// The width of the image in pixels.
+    pub width: Option<u64>,
+    /// The height of the image in pixels.
+    pub height: Option<u64>,
+    /// The mime type of the image.
+    pub mimetype: Option<String>,
+}
+
+impl From<ruma::events::room::message::PreviewImage> for PreviewImage {
+    fn from(image: ruma::events::room::message::PreviewImage) -> Self {
+        Self {
+            source: image.source.into(),
+            size: image.size.map(Into::into),
+            width: image.width.map(Into::into),
+            height: image.height.map(Into::into),
+            mimetype: image.mimetype,
+        }
+    }
+}
+
+impl From<&ruma::events::room::message::PreviewImage> for PreviewImage {
+    fn from(image: &ruma::events::room::message::PreviewImage) -> Self {
+        Self {
+            source: image.source.clone().into(),
+            size: image.size.map(Into::into),
+            width: image.width.map(Into::into),
+            height: image.height.map(Into::into),
+            mimetype: image.mimetype.clone(),
+        }
+    }
+}
+
+#[derive(Clone, uniffi::Record)]
+pub struct UrlPreview {
+    /// The url this was matching on.
+    pub matched_url: Option<String>,
+    /// Canonical URL according to open graph data.
+    pub url: Option<String>,
+    /// Title to use for the preview.
+    pub title: Option<String>,
+    /// Description to use for the preview.
+    pub description: Option<String>,
+    /// Metadata of a preview image if given.
+    pub image: Option<PreviewImage>,
+}
+
+impl From<&RumaUrlPreview> for UrlPreview {
+    fn from(preview: &RumaUrlPreview) -> Self {
+        Self {
+            matched_url: preview.matched_url.clone(),
+            url: preview.url.clone(),
+            title: preview.title.clone(),
+            description: preview.description.clone(),
+            image: preview.image.as_ref().map(Into::into),
+        }
+    }
+}
+
+impl From<RumaUrlPreview> for UrlPreview {
+    fn from(preview: RumaUrlPreview) -> Self {
+        Self {
+            matched_url: preview.matched_url,
+            url: preview.url,
+            title: preview.title,
+            description: preview.description,
+            image: preview.image.map(Into::into),
+        }
     }
 }
 
