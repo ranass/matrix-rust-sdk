@@ -51,6 +51,7 @@ use ruma::{
                 TextMessageEventContent as RumaTextMessageEventContent, UnstableAmplitude,
                 UnstableAudioDetailsContentBlock as RumaUnstableAudioDetailsContentBlock,
                 UnstableVoiceContentBlock as RumaUnstableVoiceContentBlock,
+                UrlPreview as RumaUrlPreview,
                 VideoInfo as RumaVideoInfo,
                 VideoMessageEventContent as RumaVideoMessageEventContent,
             },
@@ -501,6 +502,17 @@ impl TryFrom<RumaMessageType> for MessageType {
                 content: TextMessageContent {
                     body: c.body.clone(),
                     formatted: c.formatted.as_ref().map(Into::into),
+                    url_previews: c.url_previews.as_ref().map(|previews| {
+                        previews
+                            .iter()
+                            .map(|preview| UrlPreview {
+                                matched_url: preview.matched_url.clone(),
+                                url: preview.url.clone(),
+                                title: preview.title.clone(),
+                                description: preview.description.clone(),
+                            })
+                            .collect()
+                    }),
                 },
             },
             RumaMessageType::Location(c) => {
@@ -827,9 +839,18 @@ pub struct NoticeMessageContent {
 }
 
 #[derive(Clone, uniffi::Record)]
+pub struct UrlPreview {
+    pub matched_url: Option<String>,
+    pub url: Option<String>,
+    pub title: Option<String>,
+    pub description: Option<String>,
+}
+
+#[derive(Clone, uniffi::Record)]
 pub struct TextMessageContent {
     pub body: String,
     pub formatted: Option<FormattedBody>,
+    pub url_previews: Option<Vec<UrlPreview>>,
 }
 
 #[derive(Clone, uniffi::Record)]
