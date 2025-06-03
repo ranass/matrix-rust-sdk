@@ -41,7 +41,7 @@ use ruma::{
         poll::unstable_start::{NewUnstablePollStartEventContent, UnstablePollStartEventContent},
         receipt::{Receipt, ReceiptThread},
         room::{
-            message::RoomMessageEventContentWithoutRelation,
+            message::{MessageType, RoomMessageEventContentWithoutRelation, TextMessageEventContent, UrlPreview},
             pinned_events::RoomPinnedEventsEventContent,
         },
         AnyMessageLikeEventContent, AnySyncTimelineEvent,
@@ -51,6 +51,8 @@ use ruma::{
 use subscriber::TimelineWithDropHandle;
 use thiserror::Error;
 use tracing::{instrument, trace, warn};
+
+use url_preview::{PreviewService, Preview, PreviewError};
 
 use self::{
     algorithms::rfind_event_by_id, controller::TimelineController, futures::SendAttachment,
@@ -258,6 +260,38 @@ impl Timeline {
     ) -> Result<SendHandle, RoomSendQueueError> {
         self.room().send_queue().send(content).await
     }
+
+     async fn url_preview_from_url(
+        &self,
+        url: String,
+    ) -> Result<Preview, PreviewError> {
+        let preview_service = PreviewService::new();
+        return preview_service
+            .generate_preview(&url)
+            .await;
+    }
+
+    pub async fn parse_md(&self, md: String) -> Result<RoomMessageEventContentWithoutRelation, Error> {
+
+        match self.url_preview_from_url("https://facebook.com".to_string()).await {
+            Ok(url_preview) => {
+                let mut content = TextMessageEventContent::markdown(md);
+                let mut preview = UrlPreview::matched_url(url_preview.url.to_string());
+            
+                preview.title = url_preview.title;
+                preview.description = url_preview.description;
+                // preview.image = url_preview.image_url;
+                content.url_previews = Some(vec![preview]);
+
+                Ok(RoomMessageEventContentWithoutRelation::new(MessageType::Text(content)))
+            }
+            Err(_e) => {
+                return Err(Error::UnsupportedEvent);
+            }
+        }
+    }
+
+   
 
     /// Send a reply to the given event.
     ///
@@ -700,6 +734,9 @@ impl Timeline {
     ) -> Result<Option<RepliedToEvent>, Error> {
         self.controller.make_replied_to(event).await
     }
+
+
+
 }
 
 /// Test helpers, likely not very useful in production.

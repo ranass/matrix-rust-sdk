@@ -38,21 +38,7 @@ use ruma::{
         push_rules::PushRulesEventContent,
         room::{
             message::{
-                AudioInfo as RumaAudioInfo,
-                AudioMessageEventContent as RumaAudioMessageEventContent,
-                EmoteMessageEventContent as RumaEmoteMessageEventContent, FileInfo as RumaFileInfo,
-                FileMessageEventContent as RumaFileMessageEventContent,
-                FormattedBody as RumaFormattedBody,
-                ImageMessageEventContent as RumaImageMessageEventContent,
-                LocationMessageEventContent as RumaLocationMessageEventContent,
-                MessageType as RumaMessageType,
-                NoticeMessageEventContent as RumaNoticeMessageEventContent,
-                RoomMessageEventContentWithoutRelation,
-                TextMessageEventContent as RumaTextMessageEventContent, UnstableAmplitude,
-                UnstableAudioDetailsContentBlock as RumaUnstableAudioDetailsContentBlock,
-                UnstableVoiceContentBlock as RumaUnstableVoiceContentBlock,
-                VideoInfo as RumaVideoInfo,
-                VideoMessageEventContent as RumaVideoMessageEventContent,
+                AudioInfo as RumaAudioInfo, AudioMessageEventContent as RumaAudioMessageEventContent, EmoteMessageEventContent as RumaEmoteMessageEventContent, FileInfo as RumaFileInfo, FileMessageEventContent as RumaFileMessageEventContent, FormattedBody as RumaFormattedBody, ImageMessageEventContent as RumaImageMessageEventContent, LocationMessageEventContent as RumaLocationMessageEventContent, MessageType as RumaMessageType, NoticeMessageEventContent as RumaNoticeMessageEventContent, RoomMessageEventContentWithoutRelation, TextMessageEventContent as RumaTextMessageEventContent, UnstableAmplitude, UnstableAudioDetailsContentBlock as RumaUnstableAudioDetailsContentBlock, UnstableVoiceContentBlock as RumaUnstableVoiceContentBlock, UrlPreview, VideoInfo as RumaVideoInfo, VideoMessageEventContent as RumaVideoMessageEventContent
             },
             ImageInfo as RumaImageInfo, MediaSource as RumaMediaSource,
             ThumbnailInfo as RumaThumbnailInfo,
@@ -201,7 +187,20 @@ pub fn message_event_content_new(
 pub fn message_event_content_from_markdown(
     md: String,
 ) -> Arc<RoomMessageEventContentWithoutRelation> {
-    Arc::new(RoomMessageEventContentWithoutRelation::new(RumaMessageType::text_markdown(md)))
+    
+    let url = "https://example.com";
+    let title = "title";
+    let description = "description";
+
+    let mut content = RumaTextMessageEventContent::markdown(md);
+    let mut preview = UrlPreview::matched_url(url.to_string());
+    
+    preview.title = Some(title.to_string());
+    preview.description = Some(description.to_string());
+    content.url_previews = Some(vec![preview]);
+
+    
+    Arc::new(RoomMessageEventContentWithoutRelation::new(RumaMessageType::Text(content)))
 }
 
 #[matrix_sdk_ffi_macros::export]
