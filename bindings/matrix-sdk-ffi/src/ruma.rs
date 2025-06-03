@@ -38,7 +38,7 @@ use ruma::{
         push_rules::PushRulesEventContent,
         room::{
             message::{
-                AudioInfo as RumaAudioInfo, AudioMessageEventContent as RumaAudioMessageEventContent, EmoteMessageEventContent as RumaEmoteMessageEventContent, FileInfo as RumaFileInfo, FileMessageEventContent as RumaFileMessageEventContent, FormattedBody as RumaFormattedBody, ImageMessageEventContent as RumaImageMessageEventContent, LocationMessageEventContent as RumaLocationMessageEventContent, MessageType as RumaMessageType, NoticeMessageEventContent as RumaNoticeMessageEventContent, RoomMessageEventContentWithoutRelation, TextMessageEventContent as RumaTextMessageEventContent, UnstableAmplitude, UnstableAudioDetailsContentBlock as RumaUnstableAudioDetailsContentBlock, UnstableVoiceContentBlock as RumaUnstableVoiceContentBlock, UrlPreview, VideoInfo as RumaVideoInfo, VideoMessageEventContent as RumaVideoMessageEventContent
+                AudioInfo as RumaAudioInfo, AudioMessageEventContent as RumaAudioMessageEventContent, EmoteMessageEventContent as RumaEmoteMessageEventContent, FileInfo as RumaFileInfo, FileMessageEventContent as RumaFileMessageEventContent, FormattedBody as RumaFormattedBody, ImageMessageEventContent as RumaImageMessageEventContent, LocationMessageEventContent as RumaLocationMessageEventContent, MessageType as RumaMessageType, NoticeMessageEventContent as RumaNoticeMessageEventContent, RoomMessageEventContentWithoutRelation, TextMessageEventContent as RumaTextMessageEventContent, UnstableAmplitude, UnstableAudioDetailsContentBlock as RumaUnstableAudioDetailsContentBlock, UnstableVoiceContentBlock as RumaUnstableVoiceContentBlock, UrlPreview as RumaUrlPreview, VideoInfo as RumaVideoInfo, VideoMessageEventContent as RumaVideoMessageEventContent
             },
             ImageInfo as RumaImageInfo, MediaSource as RumaMediaSource,
             ThumbnailInfo as RumaThumbnailInfo,
@@ -187,19 +187,7 @@ pub fn message_event_content_new(
 pub fn message_event_content_from_markdown(
     md: String,
 ) -> Arc<RoomMessageEventContentWithoutRelation> {
-    
-    let url = "https://example.com";
-    let title = "title";
-    let description = "description";
-
     let mut content = RumaTextMessageEventContent::markdown(md);
-    let mut preview = UrlPreview::matched_url(url.to_string());
-    
-    preview.title = Some(title.to_string());
-    preview.description = Some(description.to_string());
-    content.url_previews = Some(vec![preview]);
-
-    
     Arc::new(RoomMessageEventContentWithoutRelation::new(RumaMessageType::Text(content)))
 }
 
@@ -500,6 +488,17 @@ impl TryFrom<RumaMessageType> for MessageType {
                 content: TextMessageContent {
                     body: c.body.clone(),
                     formatted: c.formatted.as_ref().map(Into::into),
+                    url_previews: c.url_previews.as_ref().map(|previews| {
+                        previews
+                            .iter()
+                            .map(|preview| UrlPreview {
+                                matched_url: preview.matched_url.clone(),
+                                url: preview.url.clone(),
+                                title: preview.title.clone(),
+                                description: preview.description.clone(),
+                            })
+                            .collect()
+                    }),
                 },
             },
             RumaMessageType::Location(c) => {
@@ -826,9 +825,18 @@ pub struct NoticeMessageContent {
 }
 
 #[derive(Clone, uniffi::Record)]
+pub struct UrlPreview {
+    pub matched_url: Option<String>,
+    pub url: Option<String>,
+    pub title: Option<String>,
+    pub description: Option<String>,
+}
+
+#[derive(Clone, uniffi::Record)]
 pub struct TextMessageContent {
     pub body: String,
     pub formatted: Option<FormattedBody>,
+    pub url_previews: Option<Vec<UrlPreview>>,
 }
 
 #[derive(Clone, uniffi::Record)]
