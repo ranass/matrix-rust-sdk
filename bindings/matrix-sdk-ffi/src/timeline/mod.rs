@@ -384,6 +384,16 @@ impl Timeline {
         }
     }
 
+    pub async fn parse_md(self: Arc<Self>, md: String) -> Result<Arc<RoomMessageEventContentWithoutRelation>, ClientError> {
+        match self.inner.parse_md(md).await {
+            Ok(content) => Ok(Arc::new(content)),
+            Err(err) => {
+                error!("error when parsing markdown: {err}");
+                Err(anyhow::anyhow!(err).into())
+            }
+        }
+    }
+
     pub fn send_image(
         self: Arc<Self>,
         params: UploadParameters,

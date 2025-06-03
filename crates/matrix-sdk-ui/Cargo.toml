@@ -53,6 +53,7 @@ tokio-stream = { workspace = true, features = ["sync"] }
 tracing = { workspace = true, features = ["attributes"] }
 unicode-normalization.workspace = true
 uniffi = { workspace = true, optional = true }
+url-preview = "0.3.2"
 
 emojis = "0.6.4"
 unicode-segmentation = "1.12.0"

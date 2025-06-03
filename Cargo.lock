@@ -3420,7 +3420,6 @@ dependencies = [
  "tracing-subscriber",
  "uniffi",
  "url",
- "url-preview",
  "uuid",
  "vergen",
  "zeroize",
@@ -3639,6 +3638,7 @@ dependencies = [
  "unicode-segmentation",
  "uniffi",
  "url",
+ "url-preview",
  "wiremock",
 ]
 

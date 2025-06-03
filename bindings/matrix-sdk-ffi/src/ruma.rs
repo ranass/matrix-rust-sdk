@@ -80,8 +80,6 @@ use crate::{
     utils::u64_to_uint,
 };
 
-use url_preview::{PreviewService, Preview, PreviewError};
-
 #[derive(uniffi::Enum)]
 pub enum AuthData {
     /// Password-based authentication (`m.login.password`).
@@ -200,6 +198,7 @@ pub fn message_event_content_from_markdown(
     preview.title = Some(title.to_string());
     preview.description = Some(description.to_string());
     content.url_previews = Some(vec![preview]);
+
     
     Arc::new(RoomMessageEventContentWithoutRelation::new(RumaMessageType::Text(content)))
 }
