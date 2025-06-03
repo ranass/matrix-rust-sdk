@@ -266,7 +266,7 @@ impl Timeline {
             .map_err(|e| PreviewError::FetchError(e.to_string()))?;
         let fetcher = Fetcher::with_client(client);
         let preview_service = PreviewService::new_with_config({
-            url_preview::PreviewServiceConfig { cache_capacity: 500, cache_strategy: CacheStrategy::NoCache, default_fetcher: Some(fetcher), twitter_fetcher:  None, github_fetcher: None, max_concurrent_requests: 500 }
+            url_preview::PreviewServiceConfig { cache_capacity: 500, cache_strategy: CacheStrategy::NoCache, default_fetcher: Some(fetcher.clone()), twitter_fetcher:  Some(fetcher.clone()), github_fetcher: Some(fetcher.clone()), max_concurrent_requests: 500 }
         });
 
         // Using concurrent processing to generate previews
@@ -305,14 +305,19 @@ impl Timeline {
                 trace!("Parsed URL previews: {:?}", url_previews);
                 let mut content = TextMessageEventContent::markdown(md);
                 
-                // Handle multiple URL previews, use the first one if available
-                if let Some(first_preview) = url_previews.first() {
-                    let mut preview = UrlPreview::matched_url(first_preview.url.to_string());
-                
-                    preview.title = first_preview.title.clone();
-                    preview.description = first_preview.description.clone();
-                    // preview.image = first_preview.image_url.clone();
-                    content.url_previews = Some(vec![preview]);
+                // Handle all URL previews
+                if !url_previews.is_empty() {
+                    let previews: Vec<UrlPreview> = url_previews
+                        .iter()
+                        .map(|preview_data| {
+                            let mut preview = UrlPreview::matched_url(preview_data.url.to_string());
+                            preview.title = preview_data.title.clone();
+                            preview.description = preview_data.description.clone();
+                            // preview.image = preview_data.image_url.clone();
+                            preview
+                        })
+                        .collect();
+                    content.url_previews = Some(previews);
                 }
 
                 Ok(RoomMessageEventContentWithoutRelation::new(MessageType::Text(content)))
