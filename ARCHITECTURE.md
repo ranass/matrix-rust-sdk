@@ -117,3 +117,35 @@ setup is provided to ease running the tests, and it is compatible for running wi
 # Inspiration
 
 This document has been inspired by the reading of this [blog post](https://matklad.github.io/2021/02/06/ARCHITECTURE.md.html).
+
+# How a Rust struct is exposed as a Kotlin class
+
+```mermaid
+
+flowchart LR
+  subgraph Kotlin
+    subgraph Written
+      %% io.element.android.libraries.matrix.impl.timeline.RustTimeline
+      i.e.a.l.m.impl.timeline.RustTimeline
+    end
+    subgraph uniffi-generated
+      %% org.matrix.rustcomponents.sdk.Timeline
+      o.m.r.s.Timeline
+      
+      i.e.a.l.m.impl.timeline.RustTimeline--inner-->o.m.r.s.Timeline
+    end
+  end
+  subgraph Rust
+    subgraph matrix-sdk-ffi
+      matrix-sdk-ffi::Timeline[Timeline]
+      
+      o.m.r.s.Timeline-->matrix-sdk-ffi::Timeline
+    end
+    subgraph matrix-sdk-ui
+      matrix-sdk-ui::Timeline[Timeline]
+
+      matrix-sdk-ffi::Timeline--inner-->matrix-sdk-ui::Timeline
+    end
+  end
+```
+
