@@ -74,6 +74,8 @@ ruma = { git = "https://github.com/ruma/ruma", rev = "a8fd1b0322649bf59e2a5cfc73
     "unstable-msc4140",
     "unstable-msc4171",
     "unstable-msc4278",
+    "unstable-msc4095",
+    "markdown"
     ] }
 ruma-common = { git = "https://github.com/ruma/ruma", rev = "a8fd1b0322649bf59e2a5cfc73ab4fe46b21edd7" }
 sentry = "0.36.0"

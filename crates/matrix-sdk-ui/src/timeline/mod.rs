@@ -24,14 +24,7 @@ use eyeball_im::VectorDiff;
 use futures_core::Stream;
 use imbl::Vector;
 use matrix_sdk::{
-    attachment::AttachmentConfig,
-    deserialized_responses::TimelineEvent,
-    event_cache::{EventCacheDropHandles, RoomEventCache},
-    event_handler::EventHandlerHandle,
-    executor::JoinHandle,
-    room::{edit::EditedContent, reply::Reply, Receipts, Room},
-    send_queue::{RoomSendQueueError, SendHandle},
-    Client, Result,
+    attachment::AttachmentConfig, deserialized_responses::TimelineEvent, event_cache::{EventCacheDropHandles, RoomEventCache}, event_handler::EventHandlerHandle, executor::JoinHandle, reqwest, room::{edit::EditedContent, reply::Reply, Receipts, Room}, send_queue::{RoomSendQueueError, SendHandle}, Client, Result
 };
 use mime::Mime;
 use pinned_events_loader::PinnedEventsRoom;
@@ -52,7 +45,7 @@ use subscriber::TimelineWithDropHandle;
 use thiserror::Error;
 use tracing::{instrument, trace, warn};
 
-use url_preview::{PreviewService, Preview, PreviewError};
+use url_preview::{CacheStrategy, Fetcher, Preview, PreviewError, PreviewService};
 
 use self::{
     algorithms::rfind_event_by_id, controller::TimelineController, futures::SendAttachment,
@@ -263,18 +256,25 @@ impl Timeline {
 
      async fn url_preview_from_url(
         &self,
-        url: String,
+        url: &str
     ) -> Result<Preview, PreviewError> {
-        let preview_service = PreviewService::new();
+        let client = reqwest::ClientBuilder::new().use_rustls_tls()
+            .build()
+            .map_err(|e| PreviewError::FetchError(e.to_string()))?;
+        let fetcher = Fetcher::with_client(client); 
+        let preview_service = PreviewService::new_with_config({
+            url_preview::PreviewServiceConfig { cache_capacity: 500, cache_strategy: CacheStrategy::NoCache, default_fetcher: Some(fetcher), twitter_fetcher:  None, github_fetcher: None, max_concurrent_requests: 500 }
+        });
         return preview_service
-            .generate_preview(&url)
+            .generate_preview(url)
             .await;
     }
 
     pub async fn parse_md(&self, md: String) -> Result<RoomMessageEventContentWithoutRelation, Error> {
 
-        match self.url_preview_from_url("https://facebook.com".to_string()).await {
+        match self.url_preview_from_url("https://www.rust-lang.org").await {
             Ok(url_preview) => {
+                trace!("Parsed URL preview: {:?}", url_preview);
                 let mut content = TextMessageEventContent::markdown(md);
                 let mut preview = UrlPreview::matched_url(url_preview.url.to_string());
             
@@ -285,7 +285,8 @@ impl Timeline {
 
                 Ok(RoomMessageEventContentWithoutRelation::new(MessageType::Text(content)))
             }
-            Err(_e) => {
+            Err(e) => {
+                warn!("Failed to parse URL preview: {}", e);
                 return Err(Error::UnsupportedEvent);
             }
         }
