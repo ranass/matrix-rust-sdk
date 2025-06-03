@@ -18,6 +18,9 @@
 
 use std::{fs, path::PathBuf, sync::Arc};
 
+use regex::Regex;
+use futures_util::future;
+
 use algorithms::rfind_event_by_item_id;
 use event_item::TimelineItemHandle;
 use eyeball_im::VectorDiff;
@@ -254,40 +257,71 @@ impl Timeline {
         self.room().send_queue().send(content).await
     }
 
-     async fn url_preview_from_url(
+    async fn url_preview_from_urls(
         &self,
-        url: &str
-    ) -> Result<Preview, PreviewError> {
+        urls: Vec<&str>
+    ) -> Result<Vec<Preview>, PreviewError> {
         let client = reqwest::ClientBuilder::new().use_rustls_tls()
             .build()
             .map_err(|e| PreviewError::FetchError(e.to_string()))?;
-        let fetcher = Fetcher::with_client(client); 
+        let fetcher = Fetcher::with_client(client);
         let preview_service = PreviewService::new_with_config({
             url_preview::PreviewServiceConfig { cache_capacity: 500, cache_strategy: CacheStrategy::NoCache, default_fetcher: Some(fetcher), twitter_fetcher:  None, github_fetcher: None, max_concurrent_requests: 500 }
         });
-        return preview_service
-            .generate_preview(url)
-            .await;
+
+        // Using concurrent processing to generate previews
+        let results = future::join_all(
+            urls.iter().map(|url|
+                preview_service.generate_preview_with_concurrency(url)
+            )
+        ).await;
+
+        // Filter successful results and collect them
+        let previews: Vec<Preview> = results
+            .into_iter()
+            .filter_map(|result| result.ok())
+            .collect();
+
+        if previews.is_empty() {
+            Err(PreviewError::FetchError("Failed to generate any previews".to_string()))
+        } else {
+            Ok(previews)
+        }
     }
 
     pub async fn parse_md(&self, md: String) -> Result<RoomMessageEventContentWithoutRelation, Error> {
 
-        match self.url_preview_from_url("https://www.rust-lang.org").await {
-            Ok(url_preview) => {
-                trace!("Parsed URL preview: {:?}", url_preview);
+        let url_regex = Regex::new(r"https?://[^\s]+").unwrap();
+        let urls_strings: Vec<String> = url_regex
+            .find_iter(&md)
+            .map(|mat| mat.as_str().to_string())
+            .collect();
+
+        // Convert Vec<String> to Vec<&str> for the method call
+        let urls: Vec<&str> = urls_strings.iter().map(|s| s.as_str()).collect();
+
+        match self.url_preview_from_urls(urls).await {
+            Ok(url_previews) => {
+                trace!("Parsed URL previews: {:?}", url_previews);
                 let mut content = TextMessageEventContent::markdown(md);
-                let mut preview = UrlPreview::matched_url(url_preview.url.to_string());
-            
-                preview.title = url_preview.title;
-                preview.description = url_preview.description;
-                // preview.image = url_preview.image_url;
-                content.url_previews = Some(vec![preview]);
+                
+                // Handle multiple URL previews, use the first one if available
+                if let Some(first_preview) = url_previews.first() {
+                    let mut preview = UrlPreview::matched_url(first_preview.url.to_string());
+                
+                    preview.title = first_preview.title.clone();
+                    preview.description = first_preview.description.clone();
+                    // preview.image = first_preview.image_url.clone();
+                    content.url_previews = Some(vec![preview]);
+                }
 
                 Ok(RoomMessageEventContentWithoutRelation::new(MessageType::Text(content)))
             }
             Err(e) => {
                 warn!("Failed to parse URL preview: {}", e);
-                return Err(Error::UnsupportedEvent);
+                // Return markdown content without preview on error
+                let content = TextMessageEventContent::markdown(md);
+                Ok(RoomMessageEventContentWithoutRelation::new(MessageType::Text(content)))
             }
         }
     }
